@@ -244,7 +244,7 @@ def get_time_entries(
         params.append(date_from)
     if date_to:
         query += " AND te.start_time <= ?"
-        params.append(date_to + " 23:59:59")
+        params.append(date_to + "T23:59:59")
     if customer_id:
         query += " AND te.customer_id = ?"
         params.append(customer_id)
