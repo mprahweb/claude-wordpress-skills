@@ -39,7 +39,7 @@ class FloatingTimer(QWidget):
             Qt.WindowType.Tool
         )
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
-        self.setFixedSize(200, 90)
+        self.setFixedSize(210, 100)
         self._build_ui()
 
         self._timer = QTimer(self)
@@ -82,11 +82,27 @@ class FloatingTimer(QWidget):
 
         container = QWidget(self)
         container.setObjectName("container")
-        container.setGeometry(0, 0, 200, 90)
+        container.setGeometry(0, 0, 210, 100)
 
         layout = QVBoxLayout(container)
-        layout.setContentsMargins(10, 8, 10, 8)
-        layout.setSpacing(6)
+        layout.setContentsMargins(10, 6, 10, 8)
+        layout.setSpacing(4)
+
+        # Titelzeile mit Schließen-Button
+        title_layout = QHBoxLayout()
+        title_layout.setContentsMargins(0, 0, 0, 0)
+        title_label = QLabel("Zeiterfassung")
+        title_label.setStyleSheet("color: #7f8c8d; font-size: 10px;")
+        close_btn = QPushButton("✕")
+        close_btn.setFixedSize(16, 16)
+        close_btn.setStyleSheet(
+            "QPushButton { background: transparent; color: #7f8c8d; border: none; font-size: 11px; padding: 0; }"
+            "QPushButton:hover { color: #e74c3c; }"
+        )
+        close_btn.clicked.connect(self.hide)
+        title_layout.addWidget(title_label)
+        title_layout.addStretch()
+        title_layout.addWidget(close_btn)
 
         self.time_label = QLabel("00:00:00")
         font = QFont("Consolas", 22, QFont.Weight.Bold)
@@ -107,6 +123,7 @@ class FloatingTimer(QWidget):
         btn_layout.addWidget(self.toggle_btn)
         btn_layout.addWidget(self.open_btn)
 
+        layout.addLayout(title_layout)
         layout.addWidget(self.time_label)
         layout.addLayout(btn_layout)
 

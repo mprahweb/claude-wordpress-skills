@@ -254,10 +254,13 @@ class StopTimerDialog(QDialog):
         self.note_edit.setPlaceholderText("Notiz (optional)...")
         self.note_edit.setMaximumHeight(80)
 
+        self.not_billable_check = QCheckBox("Wird nicht berechnet")
+
         form.addRow("Kunde *:", self.customer_combo)
         form.addRow("Projekt *:", self.project_combo)
         form.addRow("Aufgabe:", self.task_combo)
         form.addRow("Notiz:", self.note_edit)
+        form.addRow("", self.not_billable_check)
 
         buttons = QDialogButtonBox(
             QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
@@ -299,6 +302,7 @@ class StopTimerDialog(QDialog):
             end_time=self.end_time.isoformat(timespec="seconds"),
             duration_minutes=self.duration_minutes,
             note=self.note_edit.toPlainText().strip(),
+            not_billable=self.not_billable_check.isChecked(),
         )
         db.save_time_entry(entry)
         self.accept()
@@ -355,6 +359,7 @@ class TimeEntryDialog(QDialog):
         self.note_edit.setMaximumHeight(80)
 
         self.invoiced_check = QCheckBox("Bereits fakturiert")
+        self.not_billable_check = QCheckBox("Wird nicht berechnet")
 
         if self.entry:
             self.start_edit.setDateTime(QDateTime.fromString(self.entry.start_time[:16], "yyyy-MM-ddTHH:mm"))
@@ -397,6 +402,7 @@ class TimeEntryDialog(QDialog):
                 if self.task_combo.itemData(i) == self.entry.task_id:
                     self.task_combo.setCurrentIndex(i)
                     break
+            self.not_billable_check.setChecked(self.entry.not_billable)
 
     def _on_customer_changed(self):
         cid = self.customer_combo.currentData()
@@ -433,6 +439,7 @@ class TimeEntryDialog(QDialog):
             duration_minutes=self.duration_spin.value(),
             note=self.note_edit.toPlainText().strip(),
             invoiced=self.invoiced_check.isChecked(),
+            not_billable=self.not_billable_check.isChecked(),
         )
         db.save_time_entry(entry)
         self.accept()

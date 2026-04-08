@@ -130,16 +130,17 @@ class BackendWindow(QMainWindow):
 
         # ── Tabelle ───────────────────────────────────────────────────────
         self.entries_table = QTableWidget()
-        self.entries_table.setColumnCount(9)
+        self.entries_table.setColumnCount(10)
         self.entries_table.setHorizontalHeaderLabels([
             "Datum", "Kunde", "Projekt", "Aufgabe",
-            "Beginn", "Ende", "Dauer (Min)", "Notiz", "Fakturiert"
+            "Beginn", "Ende", "Dauer (Min)", "Notiz", "Fakturiert", "Nicht berechnet"
         ])
         self.entries_table.horizontalHeader().setSectionResizeMode(7, QHeaderView.ResizeMode.Stretch)
         self.entries_table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         self.entries_table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
         self.entries_table.verticalHeader().setVisible(False)
         self.entries_table.setAlternatingRowColors(True)
+        self.entries_table.setSortingEnabled(True)
         self.entries_table.setStyleSheet(
             "QTableWidget { alternate-background-color: #273746; }"
         )
@@ -153,15 +154,17 @@ class BackendWindow(QMainWindow):
         btn_edit.clicked.connect(self._edit_entry)
         btn_del = _btn("Löschen", "danger")
         btn_del.clicked.connect(self._delete_entry)
-        btn_inv = _btn("Als fakturiert markieren", "success")
+        btn_inv = _btn("Fakturiert", "success")
         btn_inv.clicked.connect(lambda: self._set_invoiced(True))
         btn_uninv = _btn("Fakturierung aufheben")
         btn_uninv.clicked.connect(lambda: self._set_invoiced(False))
+        btn_nobill = _btn("Nicht berechnet")
+        btn_nobill.clicked.connect(lambda: self._set_not_billable(True))
+        btn_nobill_off = _btn("Doch berechnen")
+        btn_nobill_off.clicked.connect(lambda: self._set_not_billable(False))
 
-        from pdf_export import export_pdf
-        btn_pdf = _btn("PDF Export (Vormonat)")
+        btn_pdf = _btn("PDF Export")
         btn_pdf.clicked.connect(self._export_pdf)
-        self._export_pdf_func = export_pdf
 
         self.sum_label = QLabel("Gesamt: 0 Min (0,00 h)")
         self.sum_label.setStyleSheet("color: #3498db; font-weight: bold;")
@@ -171,6 +174,8 @@ class BackendWindow(QMainWindow):
         action_layout.addWidget(btn_del)
         action_layout.addWidget(btn_inv)
         action_layout.addWidget(btn_uninv)
+        action_layout.addWidget(btn_nobill)
+        action_layout.addWidget(btn_nobill_off)
         action_layout.addStretch()
         action_layout.addWidget(self.sum_label)
         action_layout.addWidget(btn_pdf)
@@ -261,12 +266,15 @@ class BackendWindow(QMainWindow):
                 str(e.duration_minutes),
                 e.note or "",
                 "✓" if e.invoiced else "",
+                "✓" if e.not_billable else "",
             ]
             for col, text in enumerate(items):
                 item = QTableWidgetItem(text)
                 item.setData(Qt.ItemDataRole.UserRole, e.id)
                 if e.invoiced:
                     item.setForeground(QColor("#27ae60"))
+                elif e.not_billable:
+                    item.setForeground(QColor("#e67e22"))
                 self.entries_table.setItem(row, col, item)
             total_minutes += e.duration_minutes
 
@@ -319,15 +327,43 @@ class BackendWindow(QMainWindow):
             db.set_invoiced(ids, invoiced)
             self.load_entries()
 
+    def _set_not_billable(self, not_billable: bool):
+        selected_rows = set(idx.row() for idx in self.entries_table.selectedIndexes())
+        ids = [
+            self.entries_table.item(row, 0).data(Qt.ItemDataRole.UserRole)
+            for row in selected_rows
+        ]
+        if ids:
+            db.set_not_billable(ids, not_billable)
+            self.load_entries()
+
     def _export_pdf(self):
         from pdf_export import export_pdf
-        import os
         from PyQt6.QtWidgets import QFileDialog
+        from datetime import date as _date
+
+        # Aktuellen Filterzeitraum ermitteln
+        idx = self.period_combo.currentIndex()
+        if idx == 0:
+            today = _date.today()
+            df = _date(today.year, today.month, 1).isoformat()
+            dt = today.isoformat()
+        elif idx == 1:
+            today = _date.today()
+            first_this = _date(today.year, today.month, 1)
+            import datetime as _dt
+            lm_end = first_this - _dt.timedelta(days=1)
+            df = lm_end.replace(day=1).isoformat()
+            dt = lm_end.isoformat()
+        else:
+            df = self.date_from.date().toString("yyyy-MM-dd")
+            dt = self.date_to.date().toString("yyyy-MM-dd")
+
         path, _ = QFileDialog.getSaveFileName(
             self, "PDF speichern", "zeiterfassung_export.pdf", "PDF-Dateien (*.pdf)"
         )
         if path:
-            export_pdf(path, parent_widget=self)
+            export_pdf(path, date_from=df, date_to=dt, parent_widget=self)
             QMessageBox.information(self, "Export", f"PDF gespeichert:\n{path}")
 
     # ══════════════════════════════════════════════════════════════════════

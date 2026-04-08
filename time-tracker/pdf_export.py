@@ -29,10 +29,12 @@ def _last_month_range():
     return lm_start.isoformat(), lm_end.isoformat()
 
 
-def _format_minutes(minutes: int) -> str:
-    h = minutes // 60
-    m = minutes % 60
-    return f"{h}:{m:02d} h"
+def _format_hours(minutes: int) -> str:
+    """Dezimalstunden mit deutschem Komma, z.B. 75 Min → '1,25 Std.'"""
+    h = minutes / 60
+    if h == int(h):
+        return f"{int(h)} Std."
+    return f"{h:.2f}".replace(".", ",") + " Std."
 
 
 def export_pdf(
@@ -139,7 +141,7 @@ def export_pdf(
                     Paragraph(end_dt.strftime("%H:%M"), style_normal),
                     Paragraph(e.task_name or "–", style_normal),
                     Paragraph(e.note or "", style_normal),
-                    Paragraph(_format_minutes(e.duration_minutes), style_right),
+                    Paragraph(_format_hours(e.duration_minutes), style_right),
                 ])
 
             # Projekt-Summe
@@ -149,7 +151,7 @@ def export_pdf(
                 Paragraph("", style_normal),
                 Paragraph("", style_normal),
                 Paragraph("<b>Projektsumme:</b>", style_bold),
-                Paragraph(f"<b>{_format_minutes(pdata['total'])}</b>", style_right),
+                Paragraph(f"<b>{_format_hours(pdata['total'])}</b>", style_right),
             ])
 
             col_widths = [25*mm, 16*mm, 16*mm, 35*mm, None, 22*mm]
@@ -178,7 +180,7 @@ def export_pdf(
         story.append(Table(
             [[
                 Paragraph(f"Gesamtsumme Kunde {cdata['name']}:", style_bold),
-                Paragraph(f"<b>{_format_minutes(cdata['total'])}</b>", style_right),
+                Paragraph(f"<b>{_format_hours(cdata['total'])}</b>", style_right),
             ]],
             colWidths=[140*mm, 22*mm]
         ))
@@ -190,7 +192,7 @@ def export_pdf(
     story.append(Table(
         [[
             Paragraph("GESAMTSUMME ALLE KUNDEN:", style_h2),
-            Paragraph(f"<b>{_format_minutes(grand_total)}</b>",
+            Paragraph(f"<b>{_format_hours(grand_total)}</b>",
                       ParagraphStyle("gt", fontName="Helvetica-Bold", fontSize=12, alignment=TA_RIGHT)),
         ]],
         colWidths=[140*mm, 22*mm]

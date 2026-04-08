@@ -60,12 +60,20 @@ def init_db():
             duration_minutes INTEGER NOT NULL,
             note TEXT DEFAULT '',
             invoiced INTEGER DEFAULT 0,
+            not_billable INTEGER DEFAULT 0,
             created_at TEXT DEFAULT (datetime('now', 'localtime')),
             FOREIGN KEY (customer_id) REFERENCES customers(id),
             FOREIGN KEY (project_id) REFERENCES projects(id),
             FOREIGN KEY (task_id) REFERENCES tasks(id)
         )
     """)
+
+    # Migration: not_billable-Spalte für bestehende Datenbanken
+    try:
+        conn.execute("ALTER TABLE time_entries ADD COLUMN not_billable INTEGER DEFAULT 0")
+        conn.commit()
+    except Exception:
+        pass  # Spalte existiert bereits
 
     conn.commit()
     conn.close()
@@ -211,6 +219,7 @@ def _row_to_entry(r) -> TimeEntry:
         duration_minutes=r["duration_minutes"],
         note=r["note"] or "",
         invoiced=bool(r["invoiced"]),
+        not_billable=bool(r["not_billable"]),
         created_at=r["created_at"],
         customer_name=r["customer_name"],
         project_name=r["project_name"],
@@ -262,20 +271,20 @@ def save_time_entry(entry: TimeEntry) -> int:
     c = conn.cursor()
     if entry.id is None:
         c.execute(
-            "INSERT INTO time_entries (customer_id, project_id, task_id, start_time, end_time, duration_minutes, note, invoiced) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            "INSERT INTO time_entries (customer_id, project_id, task_id, start_time, end_time, duration_minutes, note, invoiced, not_billable) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (entry.customer_id, entry.project_id, entry.task_id,
              entry.start_time, entry.end_time, entry.duration_minutes,
-             entry.note, int(entry.invoiced))
+             entry.note, int(entry.invoiced), int(entry.not_billable))
         )
         new_id = c.lastrowid
     else:
         c.execute(
             "UPDATE time_entries SET customer_id=?, project_id=?, task_id=?, start_time=?, end_time=?, "
-            "duration_minutes=?, note=?, invoiced=? WHERE id=?",
+            "duration_minutes=?, note=?, invoiced=?, not_billable=? WHERE id=?",
             (entry.customer_id, entry.project_id, entry.task_id,
              entry.start_time, entry.end_time, entry.duration_minutes,
-             entry.note, int(entry.invoiced), entry.id)
+             entry.note, int(entry.invoiced), int(entry.not_billable), entry.id)
         )
         new_id = entry.id
     conn.commit()
@@ -298,4 +307,16 @@ def set_invoiced(entry_ids: List[int], invoiced: bool):
         [int(invoiced)] + entry_ids
     )
     conn.commit()
+    conn.close()
+
+
+def set_not_billable(entry_ids: List[int], not_billable: bool):
+    conn = get_connection()
+    placeholders = ",".join("?" * len(entry_ids))
+    conn.execute(
+        f"UPDATE time_entries SET not_billable=? WHERE id IN ({placeholders})",
+        [int(not_billable)] + entry_ids
+    )
+    conn.commit()
+    conn.close()
     conn.close()

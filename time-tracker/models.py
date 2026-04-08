@@ -41,6 +41,7 @@ class TimeEntry:
     duration_minutes: int
     note: str = ""
     invoiced: bool = False
+    not_billable: bool = False
     created_at: Optional[str] = None
     customer_name: Optional[str] = None
     project_name: Optional[str] = None
